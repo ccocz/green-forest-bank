@@ -2,7 +2,13 @@
 // Created by resul on 07.12.2021.
 //
 
-//todo: check for memory corruption
+
+/*
+ * todo:
+ * check for memory corruption
+ * change credit/deposit file owners
+ * sum to float
+ */
 
 /*
  * questions:
@@ -63,19 +69,13 @@ void handle_login() {
     pam_end(pamh, PAM_SUCCESS);
 }
 
-void get_current_date(char* date) {
-    const time_t t = time(NULL);
-    struct tm* lt = localtime(&t);
-    sprintf(date, "%d.%d.%d", lt->tm_mday, lt->tm_mon + 1, lt->tm_year + 1900);
-}
-
 void select_user(char* user_id) {
     printf("Enter user ID: ");
     scanf("%s", user_id);
     // check if exists
 }
 
-void add_credit(char* user_id) {
+void add_asset(char* user_id, char* asset) {
     char id[USER_ID_LEN];
     if (user_id == NULL) {
         select_user(id);
@@ -98,44 +98,46 @@ void add_credit(char* user_id) {
     printf("Enter percentage: "), scanf("%d", &percentage);
 
     char user_dir[MAX_PATH_LENGTH];
-    strcpy(user_dir, "/home/bank/credits/");
+    strcpy(user_dir, "/home/bank/");
+    strcat(user_dir, asset);
+    strcat(user_dir, "s/");
     strcat(user_dir, id);
     strcat(user_dir, "/");
 
     DIR* d;
     d = opendir(user_dir);
     if (!d) {
-        fprintf(stderr, "Couldn't open directory");
+        fprintf(stderr, "Couldn't open directory %s", user_dir);
         exit(1);
     }
     struct dirent* dir;
-    int no_credits = 0;
+    int no_assets = 0;
     while ((dir = readdir(d)) != NULL) {
         if (dir->d_type == DT_REG) {
             printf("%s\n", dir->d_name);
-            no_credits++;
+            no_assets++;
         }
     }
     closedir(d);
 
-    char new_credit[MAX_FILE_LENGTH];
-    strcpy(new_credit, id);
-    strcat(new_credit, "-credit-");
-    sprintf(new_credit + strlen(new_credit), "%d", no_credits + 1);
+    char new_asset[MAX_FILE_LENGTH];
+    strcpy(new_asset, id);
+    strcat(new_asset, "-");
+    strcat(new_asset, asset);
+    strcat(new_asset, "-");
+    sprintf(new_asset + strlen(new_asset), "%d", no_assets + 1);
 
-    char credit_path[MAX_PATH_LENGTH];
-    strcpy(credit_path, user_dir);
-    strcat(credit_path, new_credit);
+    char asset_path[MAX_PATH_LENGTH];
+    strcpy(asset_path, user_dir);
+    strcat(asset_path, new_asset);
 
-    printf("new credit file name: %s\n", credit_path);
+    printf("new asset file name: %s\n", asset_path);
 
-    FILE* new_credit_file = fopen(credit_path, "w");
-    if (new_credit_file == NULL) {
-        fprintf(stderr, "Couldn't create new credit file %s for user %s", new_credit, id);
+    FILE* new_asset_file = fopen(asset_path, "w");
+    if (new_asset_file == NULL) {
+        fprintf(stderr, "Couldn't create new asset file %s for user %s", new_asset, id);
         exit(1);
     }
-
-    // get name and surname
 
     struct passwd* pw = getpwnam(id);
 
@@ -146,16 +148,13 @@ void add_credit(char* user_id) {
 
     printf("user info: %s", pw->pw_gecos);
 
-    fprintf(new_credit_file, "Name: %s\n", pw->pw_gecos);
-    fprintf(new_credit_file, "Number: %d\n", no_credits + 1);
-    fprintf(new_credit_file, "Sum: %d\n", sum);
-    fprintf(new_credit_file, "Date: %s\n", date);
-    fprintf(new_credit_file, "Procent: %d\n", percentage);
+    fprintf(new_asset_file, "Name: %s\n", pw->pw_gecos);
+    fprintf(new_asset_file, "Number: %d\n", no_assets + 1);
+    fprintf(new_asset_file, "Sum: %d\n", sum);
+    fprintf(new_asset_file, "Date: %s\n", date);
+    fprintf(new_asset_file, "Procent: %d\n", percentage);
 
-    fclose(new_credit_file);
-}
-
-void add_deposit(char* user_id) {
+    fclose(new_asset_file);
 }
 
 void add(char* user_id) {
@@ -163,9 +162,9 @@ void add(char* user_id) {
     int option;
     scanf("%d", &option);
     if (option == 1) {
-        add_credit(user_id);
+        add_asset(user_id, "credit");
     } else if (option == 2) {
-        add_deposit(user_id);
+        add_asset(user_id, "deposit");
     } else {
         add(user_id);
     }
@@ -175,6 +174,7 @@ void display() {
 }
 
 void modify() {
+
 }
 
 void main_menu() {
