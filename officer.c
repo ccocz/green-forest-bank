@@ -26,15 +26,57 @@
 
 #define TIME_DIFF_SEC 15
 #define USER_ID_LEN 20
-#define DATE_LEN 20
+#define USER_NAME_LEN 50
+#define ASSET_LINE_LEN 100
 
 #define MAX_PATH_LENGTH 100
 #define MAX_FILE_LENGTH 30
+
+#define SUM_PERIOD_LEN 4
+#define PERC_PERIOD_LEN 3
+
+enum period_type {SUM, PERCENTAGE};
+
+struct period {
+    char* sum;
+    char* percentage;
+    char* start_date;
+    char* end_date;
+    enum period_type type;
+};
+
+struct asset {
+    char name[USER_NAME_LEN];
+    int number;
+    size_t periods_length;
+    struct period* periods;
+};
 
 static struct pam_conv login_conv = {
         misc_conv,
         NULL
 };
+
+/*DIR* get_user_assets(char* user_id, char* type) {
+    char user_dir[MAX_PATH_LENGTH];
+    strcpy(user_dir, "/home/bank/");
+    strcat(user_dir, type);
+    strcat(user_dir, "s/");
+    strcat(user_dir, user_dir);
+    strcat(user_dir, "/");
+
+    DIR* d;
+    d = opendir(user_dir);
+    if (!d) {
+        fprintf(stderr, "Couldn't open directory %s", user_dir);
+        exit(1);
+    }
+    return d;
+}*/
+
+bool has_prefix(char* str, char* prefix) {
+    return strncmp(str, prefix, strlen(prefix)) == 0;
+}
 
 void handle_login() {
     pam_handle_t* pamh = NULL;
@@ -92,11 +134,11 @@ void add_asset(char* user_id, char* asset) {
     }
 
     printf("finally selected user %s\n", id);
-    int sum, percentage;
-    char date[DATE_LEN];
-    printf("Enter the sum: "), scanf("%d", &sum);
+    double sum, percentage;
+    char date[ASSET_LINE_LEN];
+    printf("Enter the sum: "), scanf("%lf", &sum);
     printf("Enter start date of the first billing period: "), scanf("%s", date);
-    printf("Enter percentage: "), scanf("%d", &percentage);
+    printf("Enter percentage: "), scanf("%lf", &percentage);
 
     char user_dir[MAX_PATH_LENGTH];
     strcpy(user_dir, "/home/bank/");
@@ -151,9 +193,9 @@ void add_asset(char* user_id, char* asset) {
 
     fprintf(new_asset_file, "Name: %s\n", pw->pw_gecos);
     fprintf(new_asset_file, "Number: %d\n", no_assets + 1);
-    fprintf(new_asset_file, "Sum: %d\n", sum);
+    fprintf(new_asset_file, "Sum: %lf\n", sum);
     fprintf(new_asset_file, "Date: %s\n", date);
-    fprintf(new_asset_file, "Procent: %d\n", percentage);
+    fprintf(new_asset_file, "Procent: %lf\n", percentage);
 
     fclose(new_asset_file);
 }
@@ -171,7 +213,132 @@ void add(char* user_id) {
     }
 }
 
-void display() {
+void display_asset(char* path, char* file) {
+    char file_path[MAX_PATH_LENGTH];
+    strcpy(file_path, path);
+    strcat(file_path, "/");
+    strcat(file_path, file);
+
+    FILE* content = fopen(file_path, "r");
+    if (content == NULL) {
+        fprintf(stderr, "Couldn't open file %s", file_path);
+        exit(1);
+    }
+
+    char** lines = NULL;
+    size_t no_lines = 0;
+    size_t pos = 0;
+
+    char* line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    while ((read = getline(&line, &len, content)) != -1) {
+        //printf("len: %zu, line: %s\n", len, line);
+        if (pos == no_lines) {
+            no_lines = (no_lines + 1) * 2;
+            lines = realloc(lines, sizeof(char*) * no_lines);
+        }
+        lines[pos++] = strdup(line);
+        //printf("pos: %zu, line: %s\n", pos - 1, lines[pos - 1]);
+        // why not free here?
+    }
+
+    size_t start = 2;
+
+    struct period** periods = NULL;
+    size_t len_periods = 0;
+    ssize_t pos_periods = 0;
+
+    while (start < pos) {
+        struct period* next_period = malloc(sizeof(struct period));
+        if (has_prefix(lines[start], "Sum:")) {
+            next_period->type = SUM;
+            next_period->sum = lines[start];
+            next_period->start_date = lines[start + 1];
+            next_period->percentage = lines[start + 2];
+            if (start + SUM_PERIOD_LEN < pos && has_prefix(lines[start + SUM_PERIOD_LEN], "Sum:")) {
+                next_period->end_date = lines[start + 3];
+                start += SUM_PERIOD_LEN;
+            } else {
+                next_period->end_date = NULL;
+                start += SUM_PERIOD_LEN - 1;
+            }
+        } else {
+            next_period->type = PERCENTAGE;
+            next_period->start_date = lines[start];
+            next_period->percentage = lines[start + 1];
+            if (start + PERC_PERIOD_LEN < pos && has_prefix(lines[start + PERC_PERIOD_LEN], "Sum:")) {
+                next_period->end_date = lines[start + 2];
+                start += PERC_PERIOD_LEN;
+            } else {
+                next_period->end_date = NULL;
+                start += PERC_PERIOD_LEN - 1;
+            }
+        }
+        if (pos_periods == len_periods) {
+            len_periods = (len_periods + 1) * 2;
+            periods = realloc(periods, sizeof(struct period) * len_periods);
+        }
+        periods[pos_periods++] = next_period;
+    }
+
+    printf("%s%s", lines[0], lines[1]);
+
+    for (ssize_t i = pos_periods - 1; i >= 0; i--) {
+        if (periods[i]->type == SUM) {
+            printf("%s%s%s", periods[i]->sum, periods[i]->start_date, periods[i]->percentage);
+            if (periods[i]->end_date != NULL) {
+                printf("%s", periods[i]->end_date);
+            }
+        } else {
+            printf("%s%s", periods[i]->start_date, periods[i]->percentage);
+            if (periods[i]->end_date != NULL) {
+                printf("%s", periods[i]->end_date);
+            }
+        }
+        puts("");
+    }
+
+    for (size_t i = 0; i < pos; i++) {
+        //printf("%zu-th line: %s", i, lines[i]);
+        free(lines[i]);
+    }
+    free(lines);
+    free(line);
+
+    for (size_t i = 0; i < pos_periods; i++) {
+        free(periods[i]);
+    }
+    free(periods);
+
+    fclose(content);
+}
+
+void display_assets(char* path) {
+    DIR* d;
+    d = opendir(path);
+    if (!d) {
+        fprintf(stderr, "Couldn't open directory %s", path);
+        exit(1);
+    }
+    struct dirent* dir;
+    while ((dir = readdir(d)) != NULL) {
+        if (dir->d_type == DT_REG) {
+            printf("%s-contents\n", dir->d_name);
+            display_asset(path, dir->d_name);
+            puts("");
+        }
+    }
+    closedir(d);
+}
+
+void display(char* user_id) {
+
+    // display credits
+
+
+    // display deposits
+
 }
 
 void modify(char* user_id) {
@@ -211,24 +378,24 @@ void modify(char* user_id) {
     printf("Select operation (1-3): ");
     int selection;
     scanf("%d", &selection);
-    int sum, percentage;
-    char date[DATE_LEN];
+    double sum, percentage;
+    char date[ASSET_LINE_LEN];
     switch (selection) {
         case 1:
-            printf("Enter sum: "), scanf("%d", &sum);
+            printf("Enter sum: "), scanf("%lf", &sum);
             printf("Starting date: "), scanf("%s", date);
-            printf("Percentage: "), scanf("%d", &percentage);
+            printf("Percentage: "), scanf("%lf", &percentage);
             // todo: check if ending date is later than starting date
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Sum: %d\n", sum);
+            fprintf(edited, "Sum: %lf\n", sum);
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Procent: %d\n", percentage);
+            fprintf(edited, "Procent: %lf\n", percentage);
             break;
         case 2:
             printf("Ending date (starting at the same time): "), scanf("%s", date);
-            printf("Percentage: "), scanf("%d", &percentage);
+            printf("Percentage: "), scanf("%lf", &percentage);
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Procent: %d\n", percentage);
+            fprintf(edited, "Procent: %lf\n", percentage);
             break;
         case 3:
             printf("Ending date: "), scanf("%s", date);
@@ -264,6 +431,11 @@ void main_menu() {
                 user_id_set = true;
                 break;
             case 2:
+                if (!user_id_set) {
+                    printf("You need to first select user\n");
+                    break;
+                }
+                display(user_id);
                 break;
             case 3:
                 add(user_id_set ? user_id : NULL);
@@ -284,7 +456,7 @@ void main_menu() {
 
 int main () {
     //handle_login();
-    main_menu();
-
+    //main_menu();
+    display_assets("/home/bank/deposits/zywi");
     return 0;
 }
