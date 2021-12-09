@@ -2,12 +2,13 @@
 // Created by resul on 07.12.2021.
 //
 
-
 /*
  * todo:
  * check for memory corruption
  * change credit/deposit file owners
  * sum to float
+ * check for types long
+ * add successful operation message
  */
 
 /*
@@ -173,7 +174,71 @@ void add(char* user_id) {
 void display() {
 }
 
-void modify() {
+void modify(char* user_id) {
+    char option[10];
+    printf("Type \"credit\" or \"deposit\": ");
+    scanf("%s", option);
+
+    int number;
+    printf("Number of chosen asset: ");
+    scanf("%d", &number);
+
+    char asset_file[MAX_FILE_LENGTH];
+    sprintf(asset_file, "%s-%s-%d", user_id, option, number);
+
+    char user_dir[MAX_PATH_LENGTH];
+    strcpy(user_dir, "/home/bank/");
+    strcat(user_dir, option);
+    strcat(user_dir, "s/");
+    strcat(user_dir, user_id);
+    strcat(user_dir, "/");
+    strcat(user_dir, asset_file);
+
+    FILE* edited = fopen(user_dir, "a");
+    if (edited == NULL) {
+        fprintf(stderr, "Couldn't open file %s", user_dir);
+        exit(1);
+    }
+
+    const int no_options = 3;
+    const char* options[] = {"1. New sum position",
+                             "2. New billing period",
+                             "3. End billing period"};
+    selection:
+    for (size_t i = 0; i < no_options; i++) {
+        puts(options[i]);
+    }
+    printf("Select operation (1-3): ");
+    int selection;
+    scanf("%d", &selection);
+    int sum, percentage;
+    char date[DATE_LEN];
+    switch (selection) {
+        case 1:
+            printf("Enter sum: "), scanf("%d", &sum);
+            printf("Starting date: "), scanf("%s", date);
+            printf("Percentage: "), scanf("%d", &percentage);
+            // todo: check if ending date is later than starting date
+            fprintf(edited, "Date: %s\n", date);
+            fprintf(edited, "Sum: %d\n", sum);
+            fprintf(edited, "Date: %s\n", date);
+            fprintf(edited, "Procent: %d\n", percentage);
+            break;
+        case 2:
+            printf("Ending date (starting at the same time): "), scanf("%s", date);
+            printf("Percentage: "), scanf("%d", &percentage);
+            fprintf(edited, "Date: %s\n", date);
+            fprintf(edited, "Procent: %d\n", percentage);
+            break;
+        case 3:
+            printf("Ending date: "), scanf("%s", date);
+            fprintf(edited, "Date: %s\n", date);
+            break;
+        default:
+            goto selection;
+    }
+
+    fclose(edited);
 
 }
 
@@ -197,11 +262,18 @@ void main_menu() {
             case 1:
                 select_user(user_id);
                 user_id_set = true;
+                break;
             case 2:
                 break;
             case 3:
                 add(user_id_set ? user_id : NULL);
+                break;
             case 4:
+                if (!user_id_set) {
+                    printf("You need to first select user\n");
+                    break;
+                }
+                modify(user_id);
                 break;
             case 5:
                 exit(0);
