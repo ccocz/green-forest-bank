@@ -334,11 +334,13 @@ void display_assets(char* path) {
 
 void display(char* user_id) {
 
-    // display credits
+    char base_dir[MAX_PATH_LENGTH];
 
+    sprintf(base_dir, "/home/bank/credits/%s", user_id);
+    display_assets(base_dir);
 
-    // display deposits
-
+    sprintf(base_dir, "/home/bank/deposits/%s", user_id);
+    display_assets(base_dir);
 }
 
 void modify(char* user_id) {
@@ -456,7 +458,6 @@ void main_menu() {
 
 int main () {
     //handle_login();
-    //main_menu();
-    display_assets("/home/bank/deposits/zywi");
+    main_menu();
     return 0;
 }
