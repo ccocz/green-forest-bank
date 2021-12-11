@@ -18,7 +18,7 @@ do
   f_name="${parts[2]}"
   l_name="${parts[3]}"
 
-  useradd -g "${group}s" -c "$f_name $l_name" "$id" #-m -s /bin/bash
+  useradd -g "${group}s" -c "$f_name $l_name" "$id" -m
 
   pswd=$(echo $RANDOM)
   echo "$id:$pswd" | chpasswd
@@ -33,3 +33,5 @@ done <"$file"
 
 setfacl -d -m g:officers:rwx $deposits $credits
 setfacl -d -m g:clients:r-- $deposits $credits
+
+service ssh start

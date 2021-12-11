@@ -9,6 +9,13 @@
  * sum to float
  * check for types long
  * add successful operation message
+ * password visible
+ * double less precision
+ * user permissions for his/her own files
+ * things left to do:
+    implement officer and client connection
+    prevent adding earlier date
+    fix init issues
  */
 
 /*
@@ -57,23 +64,6 @@ static struct pam_conv login_conv = {
         NULL
 };
 
-/*DIR* get_user_assets(char* user_id, char* type) {
-    char user_dir[MAX_PATH_LENGTH];
-    strcpy(user_dir, "/home/bank/");
-    strcat(user_dir, type);
-    strcat(user_dir, "s/");
-    strcat(user_dir, user_dir);
-    strcat(user_dir, "/");
-
-    DIR* d;
-    d = opendir(user_dir);
-    if (!d) {
-        fprintf(stderr, "Couldn't open directory %s", user_dir);
-        exit(1);
-    }
-    return d;
-}*/
-
 bool has_prefix(char* str, char* prefix) {
     return strncmp(str, prefix, strlen(prefix)) == 0;
 }
@@ -97,7 +87,7 @@ void handle_login() {
 
     time_t in;
     time_t current = time(NULL);
-    fprintf(stderr, "system time: ");
+    fprintf(stderr, "system time (in seconds after epoch): ");
     scanf("%ld", &in);
     if (current == (time_t)(-1)) {
         fprintf(stderr, "Couldn't get system time\n");
@@ -130,6 +120,7 @@ void add_asset(char* user_id, char* asset) {
             select_user(id);
         } else {
             strncpy(id, user_id, strlen(user_id));
+            id[strlen(user_id)] = '\0';
         }
     }
 
@@ -193,9 +184,9 @@ void add_asset(char* user_id, char* asset) {
 
     fprintf(new_asset_file, "Name: %s\n", pw->pw_gecos);
     fprintf(new_asset_file, "Number: %d\n", no_assets + 1);
-    fprintf(new_asset_file, "Sum: %lf\n", sum);
+    fprintf(new_asset_file, "Sum: %g\n", sum);
     fprintf(new_asset_file, "Date: %s\n", date);
-    fprintf(new_asset_file, "Procent: %lf\n", percentage);
+    fprintf(new_asset_file, "Procent: %g\n", percentage);
 
     fclose(new_asset_file);
 }
@@ -389,15 +380,15 @@ void modify(char* user_id) {
             printf("Percentage: "), scanf("%lf", &percentage);
             // todo: check if ending date is later than starting date
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Sum: %lf\n", sum);
+            fprintf(edited, "Sum: %g\n", sum);
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Procent: %lf\n", percentage);
+            fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 2:
             printf("Ending date (starting at the same time): "), scanf("%s", date);
             printf("Percentage: "), scanf("%lf", &percentage);
             fprintf(edited, "Date: %s\n", date);
-            fprintf(edited, "Procent: %lf\n", percentage);
+            fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 3:
             printf("Ending date: "), scanf("%s", date);
@@ -457,7 +448,7 @@ void main_menu() {
 }
 
 int main () {
-    //handle_login();
+    handle_login();
     main_menu();
     return 0;
 }
