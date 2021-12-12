@@ -16,6 +16,8 @@
     implement officer and client connection
     prevent adding earlier date
     fix init issues
+    firewall
+    a mieliście może taki problem że sie w dockerze nie da naraz odpalić ssh i aplikacji sieciowej, bo może być tylko jeden CMD?
  */
 
 /*

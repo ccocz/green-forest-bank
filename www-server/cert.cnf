@@ -1,0 +1,13 @@
+[req]
+default_bits = 2048
+distinguished_name = subject
+prompt             = no
+
+[subject]
+C="PL"
+ST="Mazovian"
+L="Warsaw"
+O="UW"
+OU="MIM"
+emailAddress="rh402185@students.mimuw.edu.pl"
+CN="rh402185.zadanie1.bsk"
