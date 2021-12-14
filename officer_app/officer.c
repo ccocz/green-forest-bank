@@ -11,9 +11,7 @@
     modifying already finished credit/deposit
     asset checking
     permissions for init files
- * adding after ending credit/deposit
  * run takes too much time separate init.sh so it goes to run/build
- * credit or deposit asking in modify check for injection
  */
 
 #include <security/pam_appl.h>
@@ -112,6 +110,8 @@ bool select_user(char* user_id) {
         fprintf(stderr, "User cannot be found in the system\n");
         return false;
     }
+
+    printf("Selected user %s\n", user_id);
     return true;
 }
 
@@ -120,7 +120,7 @@ void add_asset(char* user_id, char* asset) {
     if (user_id == NULL) {
         select_user(id);
     } else {
-        printf("Currently selected user %s, change? ", user_id);
+        printf("Currently selected user %s, change? (\"yes\" or \"no\") ", user_id);
         fflush(stdout);
         char ans[5];
         scanf("%s", ans);
@@ -132,7 +132,7 @@ void add_asset(char* user_id, char* asset) {
         }
     }
 
-    printf("finally selected user %s\n", id);
+    printf("Selected user %s\n", id);
     double sum, percentage;
     char date[ASSET_LINE_LEN];
     printf("Enter the sum: "), fflush(stdout), scanf("%lf", &sum);
@@ -157,7 +157,7 @@ void add_asset(char* user_id, char* asset) {
     DIR* d;
     d = opendir(user_dir);
     if (!d) {
-        fprintf(stderr, "Couldn't open directory %s", user_dir);
+        fprintf(stderr, "Couldn't open directory %s\n", user_dir);
         exit(1);
     }
     struct dirent* dir;
@@ -185,14 +185,14 @@ void add_asset(char* user_id, char* asset) {
 
     FILE* new_asset_file = fopen(asset_path, "w");
     if (new_asset_file == NULL) {
-        fprintf(stderr, "Couldn't create new asset file %s for user %s", new_asset, id);
+        fprintf(stderr, "Couldn't create new asset file %s for user %s\n", new_asset, id);
         exit(1);
     }
 
     struct passwd* pw = getpwnam(id);
 
     if (pw == NULL) {
-        fprintf(stderr, "getpwnam failed %s", id);
+        fprintf(stderr, "getpwnam failed %s\n", id);
         exit(1);
     }
 
@@ -202,9 +202,8 @@ void add_asset(char* user_id, char* asset) {
     fprintf(new_asset_file, "Date: %s\n", date);
     fprintf(new_asset_file, "Procent: %g\n", percentage);
 
-    // check if officers can edit / better check all cases
     if (chown(asset_path, pw->pw_uid, pw->pw_gid) == -1) {
-        fprintf(stderr, "chown failed %s %u %u", asset_path, pw->pw_uid, pw->pw_gid);
+        fprintf(stderr, "chown failed %s %u %u\n", asset_path, pw->pw_uid, pw->pw_gid);
         exit(1);
     }
 
@@ -224,6 +223,8 @@ void add(char* user_id) {
     } else {
         add_asset(user_id, "deposit");
     }
+
+    printf("\nAdded\n");
 }
 
 char** get_all_lines(char* path, char* file, size_t* pos_ret) {
@@ -237,7 +238,7 @@ char** get_all_lines(char* path, char* file, size_t* pos_ret) {
 
     FILE* content = fopen(file_path, "r");
     if (content == NULL) {
-        fprintf(stderr, "Couldn't open file %s", file_path);
+        fprintf(stderr, "Couldn't open file %s\n", file_path);
         exit(1);
     }
 
@@ -345,7 +346,7 @@ void display_assets(char* path) {
     DIR* d;
     d = opendir(path);
     if (!d) {
-        fprintf(stderr, "Couldn't open directory %s", path);
+        fprintf(stderr, "Couldn't open directory %s\n", path);
         exit(1);
     }
     struct dirent* dir;
@@ -376,7 +377,6 @@ bool earlier(char* date1, char* date2) {
 
     if (!is_valid_date(date1, &year1, &month1, &day1)
         || !is_valid_date(date2, &year2, &month2, &day2)) {
-        fprintf(stderr, "Not valid dates\n");
         return false;
     }
 
@@ -429,9 +429,16 @@ void modify(char* user_id) {
     strcat(user_dir, "/");
     strcat(user_dir, asset_file);
 
-    FILE* edited = fopen(user_dir, "a");
+    FILE* edited = fopen(user_dir, "r");
     if (edited == NULL) {
-        fprintf(stderr, "Couldn't open file %s", user_dir);
+        fprintf(stderr, "Credit/deposit doesn't exist\n");
+        return;
+    }
+    fclose(edited);
+
+    edited = fopen(user_dir, "a");
+    if (edited == NULL) {
+        fprintf(stderr, "Couldn't open file %s\n", user_dir);
         exit(1);
     }
 
@@ -485,17 +492,18 @@ void modify(char* user_id) {
             goto selection;
     }
 
+    printf("\nModified\n");
     fclose(edited);
 
 }
 
 void main_menu() {
     const int no_options = 5;
-    const char* options[] = {"1. Select customer",
+    const char* options[] = {"\n1. Select customer",
                            "2. Display deposit/credit",
                            "3. Add deposit/credit",
                            "4. Modify deposit/credit",
-                           "5. Quit"};
+                           "5. Quit\n"};
     char user_id[USER_ID_LEN];
     bool user_id_set = false;
     while (1) {

@@ -44,6 +44,5 @@ done <"$file"
 rm /var/www/html/index.html
 ln -s /home/bank /var/www/html/
 
-#todo check
 service ssh start
 apache2ctl -D FOREGROUND

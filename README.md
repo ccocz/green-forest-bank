@@ -26,10 +26,15 @@ Since Docker manipulates host's iptables to maintain isolation (https://docs.doc
 it allows adding rules to ```DOCKER-USER``` chain. This script adds rules to filter out packages as mentioned
 in the problem statement. Needs to be run on the host machine and requires iptables to be installed.
 
+**WARNING: Shouldn't be run before building the container, since it will block internet access needed to install packages.**
+
 ## init.sh
 Script creates users as per given argument file and builds file structure and permissions accordingly.
 This is a wrapper script running as a last command in the Dockerfile, therefore when running the container
 it might take few seconds before being able to connect via SSH or web server.
+
+## uzytkownicy.txt
+File contains system user information, needed by ```Dockerfile``` when initating the system.
 
 ## Examples
 
@@ -44,7 +49,7 @@ ssh -p 1235 officer@localhost # might be refused for few seconds after running.
 
 User lands on the ```officer_app``` and after providing credentials (```date +%s``` for getting epoch seconds) can choose options from the menu.
 
-For instance, choosing display option lists all periods in reverse-chronological order. Periods are separated by an empty line
+For instance, choosing display option lists all periods in reverse-chronological order lead by credit/deposit name. Periods are separated by an empty line
 and each period is either sum, new percentage or ending positions. If sum position was followed by another
 sum position the ending dates will be shown as a part of that period otherwise starting dates also correspond
 to ending dates of previous period.
@@ -57,7 +62,9 @@ docker run -d -p 1236:443 <container_id>
 
 Then, in the browser following URL https://localhost:1236 launches the app.
 After providing login credentials can skim through credits and deposits directories.
-However, can only see the content of the files which he/she owns. 
+However, can only see the content of the files which he/she owns.
+
+Command could be combined with previous one to support both ```SSH``` and ```https``` connection.
 
 ## Note
 All users have password equal to their user IDs.

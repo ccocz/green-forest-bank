@@ -14,15 +14,11 @@ RUN apt-get update -y && apt-get install -y acl \
     apache2 \
     libssl-dev \
     libapache2-mod-authnz-pam \
+    libcap2-bin \
+    iptables \
     && rm -rf /var/lib/apt/lists/*
 
-# todo move up
-RUN apt-get update && apt-get install -y libcap2-bin
-RUN apt-get update && apt-get install -y iptables
-
 ADD . /app
-
-#todo: mkdir here /home/bank
 
 RUN chmod +x /app/www-server/init.sh && /app/www-server/init.sh
 RUN cmake /app/officer_app/CMakeLists.txt && make -C /app/officer_app
