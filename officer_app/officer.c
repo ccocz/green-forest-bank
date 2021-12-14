@@ -2,18 +2,6 @@
 // Created by resul on 07.12.2021.
 //
 
-/*
- * todo:
- * check for memory corruption
- * things left to do:
-    fix init issues
-    root cannot connect
-    modifying already finished credit/deposit
-    asset checking
-    permissions for init files
- * run takes too much time separate init.sh so it goes to run/build
- */
-
 #include <security/pam_appl.h>
 #include <security/pam_misc.h>
 #include <stdio.h>
@@ -104,7 +92,8 @@ void handle_login() {
 bool select_user(char* user_id) {
     printf("Enter user ID: ");
     fflush(stdout);
-    scanf("%s", user_id);
+    // initially width had no limits, then I put 19 = USER_ID_LEN - 1 (cppcheck)
+    scanf("%19s", user_id);
 
     if (getpwnam(user_id) == NULL) {
         fprintf(stderr, "User cannot be found in the system\n");
@@ -123,7 +112,7 @@ void add_asset(char* user_id, char* asset) {
         printf("Currently selected user %s, change? (\"yes\" or \"no\") ", user_id);
         fflush(stdout);
         char ans[5];
-        scanf("%s", ans);
+        scanf("%4s", ans); // cppcheck, here and all below
         if (!strcmp(ans, "yes")) {
             select_user(id);
         } else {
@@ -136,11 +125,11 @@ void add_asset(char* user_id, char* asset) {
     double sum, percentage;
     char date[ASSET_LINE_LEN];
     printf("Enter the sum: "), fflush(stdout), scanf("%lf", &sum);
-    printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+    printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%99s", date);
     while (1) {
         int year, month, day;
         if (!is_valid_date(date, &year, &month, &day)) {
-            printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+            printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%99s", date);
         } else {
             break;
         }
@@ -253,6 +242,11 @@ char** get_all_lines(char* path, char* file, size_t* pos_ret) {
         if (pos == no_lines) {
             no_lines = (no_lines + 1) * 2;
             lines = realloc(lines, sizeof(char*) * no_lines);
+            // null check added later, error found by analysis program cppcheck
+            if (lines == NULL) {
+                fprintf(stderr, "Cannot allocate memory for lines\n");
+                exit(2);
+            }
         }
         lines[pos++] = strdup(line);
     }
@@ -306,6 +300,11 @@ void display_asset(char* path, char* file) {
         if (pos_periods == len_periods) {
             len_periods = (len_periods + 1) * 2;
             periods = realloc(periods, sizeof(struct period) * len_periods);
+            // null check added later, error found by analysis program cppcheck
+            if (periods == NULL) {
+                fprintf(stderr, "Cannot allocate memory for periods\n");
+                exit(2);
+            }
         }
         periods[pos_periods++] = next_period;
     }
@@ -313,6 +312,9 @@ void display_asset(char* path, char* file) {
     printf("%s%s", lines[0], lines[1]);
 
     for (ssize_t i = pos_periods - 1; i >= 0; i--) {
+        if (periods == NULL) {
+            break;
+        }
         if (periods[i]->type == SUM) {
             printf("%s%s%s", periods[i]->sum, periods[i]->start_date, periods[i]->percentage);
             if (periods[i]->end_date != NULL) {
@@ -407,7 +409,7 @@ void modify(char* user_id) {
     input_type:
     printf("Type \"credit\" or \"deposit\": ");
     fflush(stdout);
-    scanf("%s", option);
+    scanf("%9s", option);
 
     if (!(strcasecmp(option, "credit") == 0 || strcasecmp(option, "deposit") == 0)) {
         goto input_type;
@@ -459,7 +461,7 @@ void modify(char* user_id) {
     switch (selection) {
         case 1:
             printf("Enter sum: "), fflush(stdout), scanf("%lf", &sum);
-            printf("Starting date (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+            printf("Starting date (in DD.MM.YYYY format): "), fflush(stdout), scanf("%99s", date);
             printf("Percentage: "), fflush(stdout), scanf("%lf", &percentage);
             if (!cmp_last_date(user_dir, NULL, date)) {
                 fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
@@ -471,7 +473,7 @@ void modify(char* user_id) {
             fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 2:
-            printf("Ending date (starting at the same time in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+            printf("Ending date (starting at the same time in DD.MM.YYYY format): "), fflush(stdout), scanf("%99s", date);
             printf("Percentage: "), fflush(stdout), scanf("%lf", &percentage);
             if (!cmp_last_date(user_dir, NULL, date)) {
                 fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
@@ -481,7 +483,7 @@ void modify(char* user_id) {
             fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 3:
-            printf("Ending date: "), fflush(stdout), scanf("%s", date);
+            printf("Ending date: "), fflush(stdout), scanf("%99s", date);
             if (!cmp_last_date(user_dir, NULL, date)) {
                 fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
                 break;
