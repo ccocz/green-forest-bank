@@ -18,9 +18,7 @@ RUN apt-get update -y && apt-get install -y acl \
 
 # todo move up
 RUN apt-get update && apt-get install -y libcap2-bin
-#RUN apt-get update && apt-get install -y iptables
-
-#RUN iptables -S
+RUN apt-get update && apt-get install -y iptables
 
 ADD . /app
 
@@ -29,7 +27,6 @@ ADD . /app
 RUN chmod +x /app/www-server/init.sh && /app/www-server/init.sh
 RUN cmake /app/officer_app/CMakeLists.txt && make -C /app/officer_app
 
-# search about vulnarabilites
 RUN setcap 'cap_chown=eip' /app/officer_app/off_app
 
 # http(optional)

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ -z "$1" ]
+  then
+    echo "You need to provide argument file which contains user information"
+    exit 1
+fi
+
 groupadd officers
 groupadd clients
 
@@ -30,7 +36,6 @@ do
       setfacl -d -m "u:$id:rwx" "$credits/$id" "$deposits/$id"
       setfacl -d -m "g:officers:rwx" "$credits/$id" "$deposits/$id"
       setfacl -d -m "g:clients:r--" "$credits/$id" "$deposits/$id"
-
   else
       chsh -s /app/officer_app/off_app "$id"
   fi

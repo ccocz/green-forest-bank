@@ -5,28 +5,15 @@
 /*
  * todo:
  * check for memory corruption
- * change credit/deposit file owners
- * sum to float
- * check for types long
- * add successful operation message
- * double less precision
- * user permissions for his/her own files
  * things left to do:
-    implement officer and client connection
-    prevent adding earlier date
     fix init issues
-    firewall
-    a mieliście może taki problem że sie w dockerze nie da naraz odpalić ssh i aplikacji sieciowej, bo może być tylko jeden CMD?
     root cannot connect
-* checking for date input correctness
+    modifying already finished credit/deposit
+    asset checking
+    permissions for init files
  * adding after ending credit/deposit
  * run takes too much time separate init.sh so it goes to run/build
  * credit or deposit asking in modify check for injection
- */
-
-/*
- * questions:
- * who is running this script?
  */
 
 #include <security/pam_appl.h>
@@ -74,6 +61,14 @@ bool has_prefix(char* str, char* prefix) {
     return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
+bool is_valid_date(char* date, int* year, int* month, int* day) {
+    int pos;
+    return sscanf(date, "%d.%d.%d %n", day, month, year, &pos) == 3
+           && pos == strlen(date)
+           && (*month >= 1 && *month <= 12)
+           && (*day >= 1 && *day <= 31);
+}
+
 void handle_login() {
     pam_handle_t* pamh = NULL;
     int retval;
@@ -85,7 +80,7 @@ void handle_login() {
         exit(1);
     }
 
-    retval = pam_authenticate(pamh, 0);  /* próba autoryzacji */
+    retval = pam_authenticate(pamh, 0);
     if (retval != PAM_SUCCESS) {
         fprintf(stderr, "Login failed\n");
         exit(2);
@@ -108,10 +103,16 @@ void handle_login() {
     pam_end(pamh, PAM_SUCCESS);
 }
 
-void select_user(char* user_id) {
+bool select_user(char* user_id) {
     printf("Enter user ID: ");
+    fflush(stdout);
     scanf("%s", user_id);
-    // check if exists
+
+    if (getpwnam(user_id) == NULL) {
+        fprintf(stderr, "User cannot be found in the system\n");
+        return false;
+    }
+    return true;
 }
 
 void add_asset(char* user_id, char* asset) {
@@ -120,6 +121,7 @@ void add_asset(char* user_id, char* asset) {
         select_user(id);
     } else {
         printf("Currently selected user %s, change? ", user_id);
+        fflush(stdout);
         char ans[5];
         scanf("%s", ans);
         if (!strcmp(ans, "yes")) {
@@ -133,9 +135,17 @@ void add_asset(char* user_id, char* asset) {
     printf("finally selected user %s\n", id);
     double sum, percentage;
     char date[ASSET_LINE_LEN];
-    printf("Enter the sum: "), scanf("%lf", &sum);
-    printf("Enter start date of the first billing period: "), scanf("%s", date);
-    printf("Enter percentage: "), scanf("%lf", &percentage);
+    printf("Enter the sum: "), fflush(stdout), scanf("%lf", &sum);
+    printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+    while (1) {
+        int year, month, day;
+        if (!is_valid_date(date, &year, &month, &day)) {
+            printf("Enter start date of the first billing period (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+        } else {
+            break;
+        }
+    }
+    printf("Enter percentage: "), fflush(stdout), scanf("%lf", &percentage);
 
     char user_dir[MAX_PATH_LENGTH];
     strcpy(user_dir, "/home/bank/");
@@ -186,8 +196,6 @@ void add_asset(char* user_id, char* asset) {
         exit(1);
     }
 
-    printf("user info: %s", pw->pw_gecos);
-
     fprintf(new_asset_file, "Name: %s\n", pw->pw_gecos);
     fprintf(new_asset_file, "Number: %d\n", no_assets + 1);
     fprintf(new_asset_file, "Sum: %g\n", sum);
@@ -204,23 +212,28 @@ void add_asset(char* user_id, char* asset) {
 }
 
 void add(char* user_id) {
-    printf("Choose credit (1) or deposit (2): ");
-    int option;
-    scanf("%d", &option);
+    int option = 0;
+
+    do {
+        printf("Choose credit (1) or deposit (2): ");
+        fflush(stdout);
+    } while ((scanf("%d", &option) != 1) || !(option == 1 || option == 2));
+
     if (option == 1) {
         add_asset(user_id, "credit");
-    } else if (option == 2) {
-        add_asset(user_id, "deposit");
     } else {
-        add(user_id);
+        add_asset(user_id, "deposit");
     }
 }
 
-void display_asset(char* path, char* file) {
+char** get_all_lines(char* path, char* file, size_t* pos_ret) {
     char file_path[MAX_PATH_LENGTH];
     strcpy(file_path, path);
-    strcat(file_path, "/");
-    strcat(file_path, file);
+
+    if (file != NULL) {
+        strcat(file_path, "/");
+        strcat(file_path, file);
+    }
 
     FILE* content = fopen(file_path, "r");
     if (content == NULL) {
@@ -236,15 +249,22 @@ void display_asset(char* path, char* file) {
     size_t len = 0;
     ssize_t read;
     while ((read = getline(&line, &len, content)) != -1) {
-        //printf("len: %zu, line: %s\n", len, line);
         if (pos == no_lines) {
             no_lines = (no_lines + 1) * 2;
             lines = realloc(lines, sizeof(char*) * no_lines);
         }
         lines[pos++] = strdup(line);
-        //printf("pos: %zu, line: %s\n", pos - 1, lines[pos - 1]);
-        // why not free here?
     }
+
+    *pos_ret = pos;
+    free(line);
+    fclose(content);
+    return lines;
+}
+
+void display_asset(char* path, char* file) {
+    size_t pos = 0;
+    char** lines = get_all_lines(path, file, &pos);
 
     size_t start = 2;
 
@@ -310,18 +330,15 @@ void display_asset(char* path, char* file) {
     }
 
     for (size_t i = 0; i < pos; i++) {
-        //printf("%zu-th line: %s", i, lines[i]);
         free(lines[i]);
     }
     free(lines);
-    free(line);
 
     for (size_t i = 0; i < pos_periods; i++) {
         free(periods[i]);
     }
     free(periods);
 
-    fclose(content);
 }
 
 void display_assets(char* path) {
@@ -353,13 +370,52 @@ void display(char* user_id) {
     display_assets(base_dir);
 }
 
+bool earlier(char* date1, char* date2) {
+    int year1, month1, day1;
+    int year2, month2, day2;
+
+    if (!is_valid_date(date1, &year1, &month1, &day1)
+        || !is_valid_date(date2, &year2, &month2, &day2)) {
+        fprintf(stderr, "Not valid dates\n");
+        return false;
+    }
+
+    return year1 < year2
+        || (year1 == year2 && month1 < month2)
+        || (year1 == year2 && month1 == month2 && day1 < day2);
+}
+
+bool cmp_last_date(char* path, char* file, char* date) {
+
+    size_t pos;
+    char** lines = get_all_lines(path, file, &pos);
+
+    bool ans = true;
+
+    for (size_t i = 0; i < pos; i++) {
+        if (has_prefix(lines[i], "Date: ") && !earlier(lines[i] + strlen("Date: "), date)) {
+            ans = false;
+        }
+        free(lines[i]);
+    }
+    free(lines);
+    return ans;
+}
+
 void modify(char* user_id) {
     char option[10];
+    input_type:
     printf("Type \"credit\" or \"deposit\": ");
+    fflush(stdout);
     scanf("%s", option);
+
+    if (!(strcasecmp(option, "credit") == 0 || strcasecmp(option, "deposit") == 0)) {
+        goto input_type;
+    }
 
     int number;
     printf("Number of chosen asset: ");
+    fflush(stdout);
     scanf("%d", &number);
 
     char asset_file[MAX_FILE_LENGTH];
@@ -388,29 +444,41 @@ void modify(char* user_id) {
         puts(options[i]);
     }
     printf("Select operation (1-3): ");
+    fflush(stdout);
     int selection;
     scanf("%d", &selection);
     double sum, percentage;
     char date[ASSET_LINE_LEN];
     switch (selection) {
         case 1:
-            printf("Enter sum: "), scanf("%lf", &sum);
-            printf("Starting date: "), scanf("%s", date);
-            printf("Percentage: "), scanf("%lf", &percentage);
-            // todo: check if ending date is later than starting date
+            printf("Enter sum: "), fflush(stdout), scanf("%lf", &sum);
+            printf("Starting date (in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+            printf("Percentage: "), fflush(stdout), scanf("%lf", &percentage);
+            if (!cmp_last_date(user_dir, NULL, date)) {
+                fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
+                break;
+            }
             fprintf(edited, "Date: %s\n", date);
             fprintf(edited, "Sum: %g\n", sum);
             fprintf(edited, "Date: %s\n", date);
             fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 2:
-            printf("Ending date (starting at the same time): "), scanf("%s", date);
-            printf("Percentage: "), scanf("%lf", &percentage);
+            printf("Ending date (starting at the same time in DD.MM.YYYY format): "), fflush(stdout), scanf("%s", date);
+            printf("Percentage: "), fflush(stdout), scanf("%lf", &percentage);
+            if (!cmp_last_date(user_dir, NULL, date)) {
+                fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
+                break;
+            }
             fprintf(edited, "Date: %s\n", date);
             fprintf(edited, "Procent: %g\n", percentage);
             break;
         case 3:
-            printf("Ending date: "), scanf("%s", date);
+            printf("Ending date: "), fflush(stdout), scanf("%s", date);
+            if (!cmp_last_date(user_dir, NULL, date)) {
+                fprintf(stderr, "Date is not later than starting or is ill-formatted\n");
+                break;
+            }
             fprintf(edited, "Date: %s\n", date);
             break;
         default:
@@ -435,12 +503,14 @@ void main_menu() {
             puts(options[i]);
         }
         printf("Select operation (1-4): ");
+        fflush(stdout);
         int selection;
         scanf("%d", &selection);
         switch (selection) {
             case 1:
-                select_user(user_id);
-                user_id_set = true;
+                if (select_user(user_id)) {
+                    user_id_set = true;
+                }
                 break;
             case 2:
                 if (!user_id_set) {
