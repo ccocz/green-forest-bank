@@ -19,6 +19,9 @@
     a mieliście może taki problem że sie w dockerze nie da naraz odpalić ssh i aplikacji sieciowej, bo może być tylko jeden CMD?
     root cannot connect
 * checking for date input correctness
+ * adding after ending credit/deposit
+ * run takes too much time separate init.sh so it goes to run/build
+ * credit or deposit asking in modify check for injection
  */
 
 /*
@@ -266,7 +269,11 @@ void display_asset(char* path, char* file) {
         } else {
             next_period->type = PERCENTAGE;
             next_period->start_date = lines[start];
-            next_period->percentage = lines[start + 1];
+            if (start + 1 == pos) {
+                next_period->percentage = NULL;
+            } else {
+                next_period->percentage = lines[start + 1];
+            }
             if (start + PERC_PERIOD_LEN < pos && has_prefix(lines[start + PERC_PERIOD_LEN], "Sum:")) {
                 next_period->end_date = lines[start + 2];
                 start += PERC_PERIOD_LEN;
@@ -291,7 +298,10 @@ void display_asset(char* path, char* file) {
                 printf("%s", periods[i]->end_date);
             }
         } else {
-            printf("%s%s", periods[i]->start_date, periods[i]->percentage);
+            printf("%s", periods[i]->start_date);
+            if (periods[i]->percentage != NULL) {
+                printf("%s", periods[i]->percentage);
+            }
             if (periods[i]->end_date != NULL) {
                 printf("%s", periods[i]->end_date);
             }
