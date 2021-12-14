@@ -20,24 +20,25 @@ do
 
   useradd -g "${group}s" -c "$f_name $l_name" "$id" -m
 
-  pswd=$(echo $RANDOM)
-  echo "$id:$pswd" | chpasswd
-  echo "$id:$pswd" >> "passwords.txt"
+  echo "$id:$id" | chpasswd
 
   if [ "$group" == "client" ]; then
       mkdir "$credits/$id" "$deposits/$id"
       setfacl -m "u:$id:rwx" "$credits/$id" "$deposits/$id"
+      setfacl -m "g:officers:rwx" "$credits/$id" "$deposits/$id"
+      setfacl -m "g:clients:r--" "$credits/$id" "$deposits/$id"
       setfacl -d -m "u:$id:rwx" "$credits/$id" "$deposits/$id"
+      setfacl -d -m "g:officers:rwx" "$credits/$id" "$deposits/$id"
+      setfacl -d -m "g:clients:r--" "$credits/$id" "$deposits/$id"
+
+  else
+      chsh -s /app/officer_app/off_app "$id"
   fi
 done <"$file"
 
-# check for other comments
-setfacl -d -m g:officers:rwx $deposits $credits
-setfacl -d -m g:clients:r-- $deposits $credits
+rm /var/www/html/index.html
+ln -s /home/bank /var/www/html/
 
+#todo check
 service ssh start
-
-apachectl -D FOREGROUND
-
-#/usr/bin/sshd
-#/bin/bash
+apache2ctl -D FOREGROUND

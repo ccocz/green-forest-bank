@@ -9,7 +9,6 @@
  * sum to float
  * check for types long
  * add successful operation message
- * password visible
  * double less precision
  * user permissions for his/her own files
  * things left to do:
@@ -18,6 +17,8 @@
     fix init issues
     firewall
     a mieliście może taki problem że sie w dockerze nie da naraz odpalić ssh i aplikacji sieciowej, bo może być tylko jeden CMD?
+    root cannot connect
+* checking for date input correctness
  */
 
 /*
@@ -189,6 +190,12 @@ void add_asset(char* user_id, char* asset) {
     fprintf(new_asset_file, "Sum: %g\n", sum);
     fprintf(new_asset_file, "Date: %s\n", date);
     fprintf(new_asset_file, "Procent: %g\n", percentage);
+
+    // check if officers can edit / better check all cases
+    if (chown(asset_path, pw->pw_uid, pw->pw_gid) == -1) {
+        fprintf(stderr, "chown failed %s %u %u", asset_path, pw->pw_uid, pw->pw_gid);
+        exit(1);
+    }
 
     fclose(new_asset_file);
 }

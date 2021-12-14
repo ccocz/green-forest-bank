@@ -12,6 +12,7 @@ cp -f /app/www-server/default-ssl.conf /etc/apache2/sites-available/
 a2enmod ssl
 a2enmod headers
 a2ensite default-ssl
+a2enmod authz_owner
 # stop
 apache2ctl configtest
 
